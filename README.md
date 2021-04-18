@@ -1,70 +1,71 @@
-# Getting Started with Create React App
+Closure: en inre funktion stänger över (closes over) en variabel i det yttre scopet när den exporteras. Se closure.js.
+Den skapar ett hölje (closure) av variabeln och funktionen, typ
+```
+{
+    variables: {a: "I am a value}
+    function: theFunctionCallingA
+}
+```
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+```
+function ReactItself(){
+   
+    const closedOverVariable = "I'm in outer!"
 
-## Available Scripts
+    const inner = function CompWithState(){
+        console.log(closedOverVariable);
+    }
 
-In the project directory, you can run:
+    return inner;
+}
 
-### `yarn start`
+const fnction = ReactItself();
+//Prints "I'm in outer!"
+fnction();
+```
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+När sedan funktionen anropas utanför det yttre scopet finns värdet för variabeln a kvar.
 
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+I react sker detta genom `useState`-hooken. `useState`-variablen finns egentligen inte definierad inuti komponenten (funktionen) utan i något omgivande scope. När komponenten anropas anropas den med `useState`-variabeln, som om den vore en parameter. Den är inte lokal för funktionen, och är inte alls magisk när den används inne i komponenten, utan bara sitt fixa värde. Det förklarar varför
+1. man inte kan mutera den direkt utan måste använda `useState`-setmetoden
+2. varför det heter hooks - det är en krok in i något utanför funktionen själv, in i dess hölje
 
-### `yarn test`
+```
+function App() {
+  const [closedOverVariable, setClosedOverVariable] = useState(0)
+  return (
+    <h1>{closedOverVariable}</h1>
+    
+  );
+}
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+export default App;
 
-### `yarn build`
+```
+`closedOverVariable` här är definierad utanför den här funktionen, det finns en omgivande funktion som har dess värde. När det ändras mha `setClosedOverVariable` anropas funktionen igen.
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+Det finns ytterligare en nivå av closure, utöver själva statehanteringen: en eventhanterare eller `useEffect`-hook som använder `closedOverVariable` kommer också stängas över `closedOverVariable` - det värde som `closedOverVariable` har när den omgivande funktionen renderas blir exakt det värde som kommer användas i eventhanteraren eller `useEffect`. Båda dessa har det gemensamt att de exekveras senare, efter att funktionen som nu kör har kör klart, så när en komponent renderas skapas ett closure med statevariabeln  och eventhanteraren/useEffect-hooken:
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+```
+function Counter() {
+  const [count, setCount] = useState(0);
+  
+  function handleAlertClick() { 
+       setTimeout(() => {  
+          alert('You clicked on: ' + count); 
+           }, 3000);  }
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+  return (
+    <div>
+    <p>You clicked {count} times</p>
+    <button onClick={() => setCount(count + 1)}>
+    Click me
+    </button>
+    <button onClick={handleAlertClick}>        Show alert      </button>    </div>
+    );
+  }
 
-### `yarn eject`
+  export default Counter
+  ```
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
-
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
-
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
-
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `yarn build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+  om man här klickar tre ggr på Click me, sedan på Show alert, sedan snabbt igen på Click me, kommer Show alert att visa 3.
